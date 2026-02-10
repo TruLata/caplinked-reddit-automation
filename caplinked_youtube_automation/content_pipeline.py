@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import openai
 import os
+import textwrap
 
 # Configure OpenAI API
 # The API key is read from an environment variable for security.
@@ -63,24 +64,26 @@ def generate_video_script(title, content, length_minutes=2):
         print("ERROR: OPENAI_API_KEY environment variable not set.")
         return None
 
-    prompt = f'''
-    You are a helpful assistant that creates engaging video scripts for a YouTube channel focused on finance, technology, and M&A for an audience of investment bankers, VCs, and corporate development professionals. Your tone should be professional, informative, and concise.
+    # The textwrap.dedent function removes common leading whitespace
+    # from every line in a string, fixing the indentation issue.
+    prompt = textwrap.dedent(f'''
+        You are a helpful assistant that creates engaging video scripts for a YouTube channel focused on finance, technology, and M&A for an audience of investment bankers, VCs, and corporate development professionals. Your tone should be professional, informative, and concise.
 
-    Based on the following blog post content, please generate a script for a {length_minutes}-minute video. The script should be structured with a compelling hook, a clear body that explains the key points, and a concise conclusion with a call to action (e.g., "subscribe for more insights").
+        Based on the following blog post content, please generate a script for a {length_minutes}-minute video. The script should be structured with a compelling hook, a clear body that explains the key points, and a concise conclusion with a call to action (e.g., "subscribe for more insights").
 
-    The script should be formatted with scene descriptions and narrator voiceover text clearly separated. For example:
+        The script should be formatted with scene descriptions and narrator voiceover text clearly separated. For example:
 
-    **Scene:** [Description of a visual, e.g., "Abstract animation of data flowing between servers"]
-    **Narrator:** [Voiceover text, e.g., "In the world of high-stakes deals, security is paramount."]
+        **Scene:** [Description of a visual, e.g., "Abstract animation of data flowing between servers"]
+        **Narrator:** [Voiceover text, e.g., "In the world of high-stakes deals, security is paramount."]
 
-    **Blog Post Title:** {title}
-    **Blog Post Content:**
-    --- 
-    {content[:4000]}  # Use the first 4000 characters to stay within token limits
-    --- 
+        **Blog Post Title:** {title}
+        **Blog Post Content:**
+        --- 
+        {content[:4000]}  # Use the first 4000 characters to stay within token limits
+        --- 
 
-    Please generate the complete script now.
-    '''
+        Please generate the complete script now.
+        ''')
 
     try:
         response = openai.chat.completions.create(
