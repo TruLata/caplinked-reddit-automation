@@ -1,0 +1,10 @@
+config.json
+client_secret.json
+*.pyc
+__pycache__/
+.DS_Store
+*.log
+venv/
+.env
+reddit_monitoring_results.json
+quora_monitoring_results.json
