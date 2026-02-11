@@ -85,7 +85,6 @@ TAGS: [tags]"""
                 time.sleep(5)
             else:
                 print(f"    -> Using default metadata")
-                # Return default values if all retries fail
                 return title, f"Learn more about {title} on the CapLinked blog.", ["CapLinked", "VDR", "M&A", "Finance"]
     
     return title, f"Learn more about {title} on the CapLinked blog.", ["CapLinked", "VDR", "M&A"]
@@ -107,12 +106,14 @@ def upload_video(youtube_service, video_file_path, title, script):
                 'categoryId': '22'
             },
             'status': {
-                'privacyStatus': 'public',
-                'selfCertifiedMadeForKids': False
+                'privacyStatus': 'public'
+            },
+            'contentRating': {
+                'ytRating': 'ytGeneralAudiences'
             }
         }
         media = MediaFileUpload(video_file_path, mimetype='video/mp4', resumable=True)
-        request = youtube_service.videos().insert(part='snippet,status', body=body, media_body=media)
+        request = youtube_service.videos().insert(part='snippet,status,contentRating', body=body, media_body=media)
         response = request.execute()
         video_id = response.get('id')
         print(f"    Successfully uploaded video. Video ID: {video_id}")
