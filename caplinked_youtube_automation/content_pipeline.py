@@ -1,4 +1,3 @@
-'''
 import requests
 from bs4 import BeautifulSoup
 import openai
@@ -129,4 +128,3 @@ def run_content_pipeline():
 
 if __name__ == "__main__":
     run_content_pipeline()
-'''
