@@ -12,7 +12,13 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS_FILE = "/etc/secrets/client_secret.json"
 TOKEN_PICKLE_FILE = "/opt/render/project/src/token.pickle"
 
-client = OpenAI( )
+# Initialize OpenAI client with explicit API key
+api_key = os.environ.get("OPENAI_API_KEY", "" ).strip()
+if not api_key:
+    print("WARNING: OPENAI_API_KEY not set. SEO metadata generation will use defaults.")
+    client = None
+else:
+    client = OpenAI(api_key=api_key)
 
 def get_authenticated_service():
     credentials = None
@@ -29,6 +35,10 @@ def get_authenticated_service():
 
 def generate_seo_metadata(title, script, max_retries=3):
     print(f"    -> Generating SEO-optimized metadata for: {title}")
+    
+    if not client:
+        print(f"    -> OpenAI client not available. Using default metadata.")
+        return title, f"Learn more about {title} on the CapLinked blog.", ["CapLinked", "VDR", "M&A", "Finance"]
     
     for attempt in range(max_retries):
         try:
@@ -51,6 +61,7 @@ TAGS: [tags]"""
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=500,
+                timeout=30
             )
             
             content = response.choices[0].message.content
@@ -68,7 +79,7 @@ TAGS: [tags]"""
             return seo_title, seo_description, seo_tags
             
         except Exception as e:
-            print(f"    ERROR: Failed to generate SEO metadata (attempt {attempt + 1}/{max_retries}). Details: {e}")
+            print(f"    ERROR: Failed to generate SEO metadata (attempt {attempt + 1}/{max_retries}). Details: {type(e).__name__}: {e}")
             if attempt < max_retries - 1:
                 print(f"    -> Retrying in 5 seconds...")
                 time.sleep(5)
