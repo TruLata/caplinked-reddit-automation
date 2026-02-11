@@ -107,13 +107,10 @@ def upload_video(youtube_service, video_file_path, title, script):
             },
             'status': {
                 'privacyStatus': 'public'
-            },
-            'contentRating': {
-                'ytRating': 'ytGeneralAudiences'
             }
         }
         media = MediaFileUpload(video_file_path, mimetype='video/mp4', resumable=True)
-        request = youtube_service.videos().insert(part='snippet,status,contentRating', body=body, media_body=media)
+        request = youtube_service.videos().insert(part='snippet,status', body=body, media_body=media)
         response = request.execute()
         video_id = response.get('id')
         print(f"    Successfully uploaded video. Video ID: {video_id}")
