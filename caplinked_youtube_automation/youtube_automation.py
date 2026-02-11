@@ -25,17 +25,13 @@ def main():
         source_url = video_data["source_url"]
         print(f"--- Processing script for: {title} ---")
         # a. Generate video using Runway AI
-        # NOTE: This is a placeholder. The Runway API part is conceptual.
-        # In a real scenario, you'd get a file path back.
         video_path = generate_video_from_script(script, title)
         if not video_path:
-            print(f"  -> Skipping upload for [33m'{title}'[0m as video generation failed.")
+            print(f"  -> Skipping upload for '{title}' as video generation failed.")
             continue
         # b. Upload the generated video to YouTube
-        description = f"An overview of '{title}'. Learn more on the CapLinked blog: {source_url}\n\nThis video was generated as part of an automated content marketing initiative."
-        tags = ["CapLinked", "VDR", "Virtual Data Room", "M&A", "Due Diligence", "Fintech"] + title.split()
-        
-        upload_video(youtube_service, video_path, title, description, tags)
+        # Note: upload_video now generates SEO metadata internally from the script
+        upload_video(youtube_service, video_path, title, script)
     print("--- YouTube Automation Pipeline Finished ---")
 
 if __name__ == "__main__":
