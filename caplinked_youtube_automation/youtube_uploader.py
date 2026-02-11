@@ -2,106 +2,203 @@ import os
 import pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from openai import OpenAI
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# In Render, you will create a secret file from your client_secret.json
+# and mount it at this path.
 CLIENT_SECRETS_FILE = "/etc/secrets/client_secret.json"
-TOKEN_PICKLE_FILE = "/opt/render/project/src/token.pickle"
 
-client = OpenAI( )
+# This file stores the user's access and refresh tokens. It must be generated
+# once locally and then uploaded to your project so Render can use it.
+CREDENTIALS_PICKLE_FILE = "token.pickle"
 
-def get_authenticated_service():
+# CapLinked YouTube channel ID
+CAPLINKED_CHANNEL_ID = "UCGzAQgsMuVgdPwzd85wg9Lw"
+
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+API_SERVICE_NAME = 'youtube'
+API_VERSION = 'v3'
+
+def get_authenticated_service( ):
+    """Authenticates with the YouTube API and returns a service object."""
     credentials = None
-    if os.path.exists(TOKEN_PICKLE_FILE):
-        with open(TOKEN_PICKLE_FILE, 'rb') as token_file:
-            credentials = pickle.load(token_file)
+
+    # Check if the token.pickle file exists.
+    if os.path.exists(CREDENTIALS_PICKLE_FILE):
+        with open(CREDENTIALS_PICKLE_FILE, 'rb') as token:
+            credentials = pickle.load(token)
+    
+    # If there are no valid credentials available, attempt to refresh.
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
-            credentials.refresh(Request())
+            print("Refreshing expired YouTube API access token...")
+            try:
+                credentials.refresh(Request())
+            except Exception as e:
+                print(f"ERROR: Could not refresh token. A new authorization may be required. Details: {e}")
+                # This indicates the refresh token is likely invalid. The user must re-authenticate locally.
+                print("\n---! ACTION REQUIRED !---")
+                print("The YouTube refresh token has expired or been revoked.")
+                print("You must re-run the authentication process locally to generate a new 'token.pickle' file and upload it to your repository.")
+                return None
         else:
-            print("ERROR: No valid credentials found. Please ensure token.pickle exists.")
+            # This block executes if token.pickle is missing or corrupted.
+            # It cannot proceed on a server, as it requires interactive login.
+            print("\n---! ACTION REQUIRED !---")
+            print(f"ERROR: Credentials file '{CREDENTIALS_PICKLE_FILE}' not found or invalid.")
+            print("This script must be authenticated to upload videos.")
+            print("Please run the 'youtube_uploader.py' script locally on your computer first.")
+            print("This will guide you through a browser-based login and create the 'token.pickle' file.")
+            print("Once created, you MUST add, commit, and push that file to your GitHub repository for this server to use.")
             return None
-    return build('youtube', 'v3', credentials=credentials)
 
-def generate_seo_metadata(title, script):
-    print(f"    -> Generating SEO-optimized metadata for: {title}")
+        # Save the refreshed credentials for the next run
+        with open(CREDENTIALS_PICKLE_FILE, 'wb') as token:
+            pickle.dump(credentials, token)
+
     try:
-        prompt = f"""Generate SEO-optimized metadata for a YouTube video about: {title}
+        print("Successfully authenticated with YouTube API.")
+        return build(API_SERVICE_NAME, API_VERSION, credentials=credentials)
+    except Exception as e:
+        print(f"ERROR: Failed to build YouTube service. Details: {e}")
+        return None
 
-The video script is: {script[:500]}
+def upload_video(youtube_service, file_path, title, description, tags):
+    """
+    Uploads a video to YouTube and moves it to the CapLinked channel.
+    
+    Args:
+        youtube_service: Authenticated YouTube service object
+        file_path: Path to the video file
+        title: Video title
+        description: Video description
+        tags: List of tags
+    
+    Returns:
+        Video ID if successful, None otherwise
+    """
+    if not youtube_service:
+        print("YouTube service is not authenticated. Cannot upload video.")
+        return None
 
-Please provide:
-1. A compelling YouTube title (60 characters max) that includes keywords about virtual data rooms, M&A, or finance
-2. A detailed description (300-500 characters) that includes relevant keywords and a call-to-action
-3. 5-10 relevant tags separated by commas
+    if not os.path.exists(file_path):
+        print(f"ERROR: Video file not found at {file_path}. Cannot upload.")
+        return None
 
-Format your response as:
-TITLE: [title]
-DESCRIPTION: [description]
-TAGS: [tags]"""
+    print(f"  -> Starting upload for video: {title}")
+    
+    body = {
+        'snippet': {
+            'title': title,
+            'description': description,
+            'tags': tags,
+            'categoryId': '27'  # Category 27 is "Education"
+        },
+        'status': {
+            'privacyStatus': 'public'  # or 'private' or 'unlisted'
+        }
+    }
+
+    try:
+        media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
         
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=500,
+        # Upload to default channel first
+        request = youtube_service.videos().insert(
+            part='snippet,status',
+            body=body,
+            media_body=media
         )
         
-        content = response.choices[0].message.content
-        lines = content.split('\n')
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"    Uploaded {int(status.progress() * 100)}%")
         
-        title_line = next((l for l in lines if l.startswith('TITLE:')), None)
-        desc_line = next((l for l in lines if l.startswith('DESCRIPTION:')), None)
-        tags_line = next((l for l in lines if l.startswith('TAGS:')), None)
-        
-        seo_title = title_line.replace('TITLE:', '').strip() if title_line else title
-        seo_description = desc_line.replace('DESCRIPTION:', '').strip() if desc_line else ""
-        seo_tags = tags_line.replace('TAGS:', '').strip().split(',') if tags_line else []
-        
-        print(f"    -> SEO metadata generated successfully")
-        return seo_title, seo_description, seo_tags
-    except Exception as e:
-        print(f"    ERROR: Failed to generate SEO metadata. Details: {e}")
-        return title, "", []
-
-def upload_video(youtube_service, video_file_path, title, script):
-    print(f"  -> Uploading video to YouTube: '{title}'")
-    if not os.path.exists(video_file_path):
-        print(f"    ERROR: Video file not found at {video_file_path}")
-        return False
-    
-    seo_title, seo_description, seo_tags = generate_seo_metadata(title, script)
-    
-    try:
-        body = {
-            'snippet': {
-                'title': seo_title,
-                'description': seo_description,
-                'tags': seo_tags,
-                'categoryId': '22'
-            },
-            'status': {
-                'privacyStatus': 'public'
-            }
-        }
-        media = MediaFileUpload(video_file_path, mimetype='video/mp4', resumable=True)
-        request = youtube_service.videos().insert(part='snippet,status', body=body, media_body=media)
-        response = request.execute()
         video_id = response.get('id')
-        print(f"    Successfully uploaded video. Video ID: {video_id}")
-        print(f"    Video URL: https://www.youtube.com/watch?v={video_id}" )
-        return True
-    except Exception as e:
-        print(f"    ERROR: Failed to upload video. Details: {e}")
-        return False
+        print(f"  -> Upload successful! Video ID: {video_id}")
+        print(f"    Watch on YouTube: https://www.youtube.com/watch?v={video_id}" )
+        
+        # Now move the video to CapLinked channel
+        print(f"  -> Moving video to CapLinked channel ({CAPLINKED_CHANNEL_ID})...")
+        try:
+            move_video_to_channel(youtube_service, video_id, CAPLINKED_CHANNEL_ID)
+            print(f"  -> Video successfully moved to CapLinked channel!")
+        except Exception as e:
+            print(f"  WARNING: Could not move video to CapLinked channel. Details: {e}")
+            print(f"  -> Video remains on your personal channel. You may need to move it manually.")
+        
+        return video_id
 
-if __name__ == "__main__":
-    print("--- Testing YouTube Uploader ---")
-    service = get_authenticated_service()
-    if service:
-        print("Successfully authenticated with YouTube API.")
+    except Exception as e:
+        print(f"  ERROR: An error occurred during the upload. Details: {e}")
+        return None
+
+def move_video_to_channel(youtube_service, video_id, target_channel_id):
+    """
+    Move a video to a different channel using the YouTube API.
+    
+    Note: This uses the videos().update() method with the onBehalfOfContentOwner parameter.
+    The target channel must be a channel you have access to manage.
+    
+    Args:
+        youtube_service: Authenticated YouTube service object
+        video_id: ID of the video to move
+        target_channel_id: ID of the target channel
+    """
+    try:
+        # Get the current video details
+        video_request = youtube_service.videos().list(
+            part='snippet,status',
+            id=video_id
+        )
+        video_response = video_request.execute()
+        
+        if not video_response.get('items'):
+            raise Exception(f"Video {video_id} not found")
+        
+        video = video_response['items'][0]
+        
+        # Update the video with the target channel
+        # Note: This approach uses onBehalfOfContentOwner to specify the channel
+        update_body = {
+            'id': video_id,
+            'snippet': video['snippet'],
+            'status': video['status']
+        }
+        
+        update_request = youtube_service.videos().update(
+            part='snippet,status',
+            body=update_body,
+            onBehalfOfContentOwner=target_channel_id
+        )
+        
+        update_response = update_request.execute()
+        print(f"    Video moved successfully!")
+        return update_response
+        
+    except Exception as e:
+        print(f"    Error moving video: {e}")
+        raise
+
+if __name__ == '__main__':
+    # This main block is for the one-time local authentication.
+    print("--- YouTube Uploader Authentication Setup ---")
+    print("This script will now attempt to authenticate with Google.")
+    
+    if not os.path.exists(CLIENT_SECRETS_FILE):
+         # Create a dummy file for local run if it doesn't exist
+        if not os.path.exists("client_secret.json"):
+            print("ERROR: client_secret.json not found.")
+            print("Please download your OAuth 2.0 client secrets file from the Google Cloud Console and place it in the same directory as this script.")
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file("client_secret.json", SCOPES)
+            credentials = flow.run_console()
+            with open(CREDENTIALS_PICKLE_FILE, 'wb') as token:
+                pickle.dump(credentials, token)
+            print(f"\nSUCCESS: Authentication complete. '{CREDENTIALS_PICKLE_FILE}' has been created.")
+            print("Please add this file to your GitHub repository.")
     else:
-        print("Failed to authenticate with YouTube API.")
+        print("This script is running on a server and expects a pre-existing token.pickle.")
+        get_authenticated_service() # Run to test the existing token
