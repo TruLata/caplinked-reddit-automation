@@ -1,5 +1,6 @@
 import os
 import pickle
+import time
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -11,7 +12,7 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS_FILE = "/etc/secrets/client_secret.json"
 TOKEN_PICKLE_FILE = "/opt/render/project/src/token.pickle"
 
-client = OpenAI(  )
+client = OpenAI( )
 
 def get_authenticated_service():
     credentials = None
@@ -26,10 +27,12 @@ def get_authenticated_service():
             return None
     return build('youtube', 'v3', credentials=credentials)
 
-def generate_seo_metadata(title, script):
+def generate_seo_metadata(title, script, max_retries=3):
     print(f"    -> Generating SEO-optimized metadata for: {title}")
-    try:
-        prompt = f"""Generate SEO-optimized metadata for a YouTube video about: {title}
+    
+    for attempt in range(max_retries):
+        try:
+            prompt = f"""Generate SEO-optimized metadata for a YouTube video about: {title}
 
 The video script is: {script[:500]}
 
@@ -42,30 +45,39 @@ Format your response as:
 TITLE: [title]
 DESCRIPTION: [description]
 TAGS: [tags]"""
-        
-        response = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=500,
-        )
-        
-        content = response.choices[0].message.content
-        lines = content.split('\n')
-        
-        title_line = next((l for l in lines if l.startswith('TITLE:')), None)
-        desc_line = next((l for l in lines if l.startswith('DESCRIPTION:')), None)
-        tags_line = next((l for l in lines if l.startswith('TAGS:')), None)
-        
-        seo_title = title_line.replace('TITLE:', '').strip() if title_line else title
-        seo_description = desc_line.replace('DESCRIPTION:', '').strip() if desc_line else ""
-        seo_tags = tags_line.replace('TAGS:', '').strip().split(',') if tags_line else []
-        
-        print(f"    -> SEO metadata generated successfully")
-        return seo_title, seo_description, seo_tags
-    except Exception as e:
-        print(f"    ERROR: Failed to generate SEO metadata. Details: {e}")
-        return title, "", []
+            
+            response = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=500,
+            )
+            
+            content = response.choices[0].message.content
+            lines = content.split('\n')
+            
+            title_line = next((l for l in lines if l.startswith('TITLE:')), None)
+            desc_line = next((l for l in lines if l.startswith('DESCRIPTION:')), None)
+            tags_line = next((l for l in lines if l.startswith('TAGS:')), None)
+            
+            seo_title = title_line.replace('TITLE:', '').strip() if title_line else title
+            seo_description = desc_line.replace('DESCRIPTION:', '').strip() if desc_line else f"Learn more about {title} on the CapLinked blog."
+            seo_tags = [tag.strip() for tag in tags_line.replace('TAGS:', '').strip().split(',')] if tags_line else ["CapLinked", "VDR", "M&A"]
+            
+            print(f"    -> SEO metadata generated successfully on attempt {attempt + 1}")
+            return seo_title, seo_description, seo_tags
+            
+        except Exception as e:
+            print(f"    ERROR: Failed to generate SEO metadata (attempt {attempt + 1}/{max_retries}). Details: {e}")
+            if attempt < max_retries - 1:
+                print(f"    -> Retrying in 5 seconds...")
+                time.sleep(5)
+            else:
+                print(f"    -> Using default metadata")
+                # Return default values if all retries fail
+                return title, f"Learn more about {title} on the CapLinked blog.", ["CapLinked", "VDR", "M&A", "Finance"]
+    
+    return title, f"Learn more about {title} on the CapLinked blog.", ["CapLinked", "VDR", "M&A"]
 
 def upload_video(youtube_service, video_file_path, title, script):
     print(f"  -> Uploading video to YouTube: '{title}'")
@@ -93,7 +105,7 @@ def upload_video(youtube_service, video_file_path, title, script):
         response = request.execute()
         video_id = response.get('id')
         print(f"    Successfully uploaded video. Video ID: {video_id}")
-        print(f"    Video URL: https://www.youtube.com/watch?v={video_id}"  )
+        print(f"    Video URL: https://www.youtube.com/watch?v={video_id}" )
         return True
     except Exception as e:
         print(f"    ERROR: Failed to upload video. Details: {e}")
