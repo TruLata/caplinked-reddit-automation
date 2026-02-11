@@ -5,12 +5,15 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from openai import OpenAI
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS_FILE = "/etc/secrets/client_secret.json"
 TOKEN_PICKLE_FILE = "/opt/render/project/src/token.pickle"
 
-def get_authenticated_service( ):
+client = OpenAI( )
+
+def get_authenticated_service():
     credentials = None
     if os.path.exists(TOKEN_PICKLE_FILE):
         with open(TOKEN_PICKLE_FILE, 'rb') as token_file:
@@ -23,17 +26,61 @@ def get_authenticated_service( ):
             return None
     return build('youtube', 'v3', credentials=credentials)
 
-def upload_video(youtube_service, video_file_path, title, description, tags):
+def generate_seo_metadata(title, script):
+    print(f"    -> Generating SEO-optimized metadata for: {title}")
+    try:
+        prompt = f"""Generate SEO-optimized metadata for a YouTube video about: {title}
+
+The video script is: {script[:500]}
+
+Please provide:
+1. A compelling YouTube title (60 characters max) that includes keywords about virtual data rooms, M&A, or finance
+2. A detailed description (300-500 characters) that includes relevant keywords and a call-to-action
+3. 5-10 relevant tags separated by commas
+
+Format your response as:
+TITLE: [title]
+DESCRIPTION: [description]
+TAGS: [tags]"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=500,
+        )
+        
+        content = response.choices[0].message.content
+        lines = content.split('\n')
+        
+        title_line = next((l for l in lines if l.startswith('TITLE:')), None)
+        desc_line = next((l for l in lines if l.startswith('DESCRIPTION:')), None)
+        tags_line = next((l for l in lines if l.startswith('TAGS:')), None)
+        
+        seo_title = title_line.replace('TITLE:', '').strip() if title_line else title
+        seo_description = desc_line.replace('DESCRIPTION:', '').strip() if desc_line else ""
+        seo_tags = tags_line.replace('TAGS:', '').strip().split(',') if tags_line else []
+        
+        print(f"    -> SEO metadata generated successfully")
+        return seo_title, seo_description, seo_tags
+    except Exception as e:
+        print(f"    ERROR: Failed to generate SEO metadata. Details: {e}")
+        return title, "", []
+
+def upload_video(youtube_service, video_file_path, title, script):
     print(f"  -> Uploading video to YouTube: '{title}'")
     if not os.path.exists(video_file_path):
         print(f"    ERROR: Video file not found at {video_file_path}")
         return False
+    
+    seo_title, seo_description, seo_tags = generate_seo_metadata(title, script)
+    
     try:
         body = {
             'snippet': {
-                'title': title,
-                'description': description,
-                'tags': tags,
+                'title': seo_title,
+                'description': seo_description,
+                'tags': seo_tags,
                 'categoryId': '22'
             },
             'status': {
