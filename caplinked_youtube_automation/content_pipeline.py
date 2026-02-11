@@ -1,9 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import openai
+from openai import OpenAI
 import os
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 CAPLINKED_BLOG_URL = "https://www.caplinked.com/blog/"
 
 def get_latest_blog_posts(url, limit=3 ):
@@ -50,7 +50,7 @@ def generate_video_script(title, content):
     print(f"    -> Generating video script for: {title}")
     try:
         prompt = f"Create a 2-minute video script for a YouTube video about '{title}'. The script should be engaging, informative, and suitable for an audience of investment bankers, VCs, and corporate development professionals. Base it on this content: {content}"
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
