@@ -2,7 +2,7 @@ import requests
 import os
 import time
 
-RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY")
+RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "").strip()
 RUNWAY_API_URL = "https://api.runwayml.com/v1"
 
 def generate_video_from_script(script, title ):
@@ -26,14 +26,16 @@ def generate_video_from_script(script, title ):
         if not job_id:
             print("    ERROR: Failed to get a job ID from Runway.")
             return None
-        print(f"    Successfully submitted job. Job ID: {job_id}. Waiting for completion...")
-        while True:
-            time.sleep(30)
+        print(f"    Successfully submitted job. Job ID: {job_id}. Waiting for video generation...")
+        max_wait_time = 600
+        start_time = time.time()
+        while time.time() - start_time < max_wait_time:
+            time.sleep(10)
             status_response = requests.get(f"{RUNWAY_API_URL}/jobs/{job_id}", headers=headers)
             status_response.raise_for_status()
             status_data = status_response.json()
             status = status_data.get("status")
-            print(f"      Current job status: {status}")
+            print(f"    Job status: {status}")
             if status == "succeeded":
                 video_url = status_data.get("outputs", [{}])[0].get("url")
                 print(f"    Video generation successful. Video URL: {video_url}")
