@@ -1,11 +1,10 @@
-'''
 import requests
 import os
 import time
 
 # Runway API credentials are read from environment variables
-RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY")
-RUNWAY_API_URL = "https://api.runwayml.com/v1" # This is a hypothetical endpoint
+RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY").strip()
+RUNWAY_API_URL = "https://api.dev.runwayml.com/v1"
 
 def generate_video_from_script(script, title ):
     """
@@ -21,7 +20,8 @@ def generate_video_from_script(script, title ):
 
     headers = {
         "Authorization": f"Bearer {RUNWAY_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Runway-Version": "2024-11-06"
     }
 
     # This payload is a simplified example for a text-to-video model.
@@ -33,8 +33,8 @@ def generate_video_from_script(script, title ):
 
     try:
         # 1. Submit the generation job
-        # The endpoint /generate is hypothetical
-        response = requests.post(f"{RUNWAY_API_URL}/generate", headers=headers, json=payload)
+        # The endpoint /text_to_video is the correct Runway endpoint
+        response = requests.post(f"{RUNWAY_API_URL}/text_to_video", headers=headers, json=payload)
         response.raise_for_status()
         job_data = response.json()
         job_id = job_data.get("id")
@@ -89,4 +89,3 @@ if __name__ == "__main__":
         print(f"Test video generated and saved to: {video_path}")
     else:
         print("Test video generation failed.")
-'''
