@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import openai
 import os
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+openai.api_key = os.environ.get("OPENAI_API_KEY" )
 CAPLINKED_BLOG_URL = "https://www.caplinked.com/blog/"
 
 def get_latest_blog_posts(url, limit=3 ):
@@ -12,7 +12,7 @@ def get_latest_blog_posts(url, limit=3 ):
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        posts = soup.find_all("a", class_="blog-card", limit=limit)
+        posts = soup.find_all("a", class_="uael-post__read-more", limit=limit)
         post_urls = []
         for post in posts:
             href = post.get("href")
@@ -32,28 +32,25 @@ def get_blog_content(url):
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        content_div = soup.find("div", class_="post-content")
+        content_div = soup.find("div", class_="elementor-widget-container")
         if content_div:
             for script_or_style in content_div(["script", "style"]):
                 script_or_style.decompose()
-            text = content_div.get_text(separator="\n", strip=True)
+            text = content_div.get_text(separator=" ", strip=True)
             print(f"    Successfully extracted {len(text)} characters of content.")
-            return text
+            return text[:2000]
         else:
-            print("    ERROR: Could not find the main content div.")
+            print("    ERROR: Could not find content div.")
             return None
     except requests.exceptions.RequestException as e:
         print(f"    ERROR: Could not fetch blog content. Details: {e}")
         return None
 
-def generate_video_script(title, content, length_minutes=2):
-    print(f"  -> Generating {length_minutes}-minute video script for: '{title}'...")
-    if not openai.api_key:
-        print("ERROR: OPENAI_API_KEY environment variable not set.")
-        return None
-    prompt = f"You are a helpful assistant that creates engaging video scripts for a YouTube channel focused on finance, technology, and M&A for an audience of investment bankers, VCs, and corporate development professionals. Your tone should be professional, informative, and concise. Based on the following blog post content, please generate a script for a {length_minutes}-minute video. The script should be structured with a compelling hook, a clear body that explains the key points, and a concise conclusion with a call to action. Blog Post Title: {title}. Blog Post Content: {content[:4000]}. Please generate the complete script now."
+def generate_video_script(title, content):
+    print(f"    -> Generating video script for: {title}")
     try:
-        response = openai.chat.completions.create(
+        prompt = f"Create a 2-minute video script for a YouTube video about '{title}'. The script should be engaging, informative, and suitable for an audience of investment bankers, VCs, and corporate development professionals. Base it on this content: {content}"
+        response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
