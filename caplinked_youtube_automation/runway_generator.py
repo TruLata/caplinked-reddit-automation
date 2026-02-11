@@ -48,7 +48,7 @@ def generate_video_from_script(script, title ):
             if status == "SUCCEEDED":
                 output = status_data.get("output")
                 if output:
-                    video_url = output if isinstance(output, str) else output.get("url")
+                    video_url = output[0] if isinstance(output, list) else (output if isinstance(output, str) else output.get("url"))
                     print(f"    Video generation successful. Video URL: {video_url}")
                     video_content = requests.get(video_url).content
                     file_path = f"/tmp/{title.replace(' ', '_')}.mp4"
