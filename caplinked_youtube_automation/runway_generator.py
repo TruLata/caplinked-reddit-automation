@@ -1,12 +1,13 @@
 import requests
 import os
 import time
+import json
 
 RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "").strip()
 RUNWAY_API_URL = "https://api.dev.runwayml.com/v1"
 RUNWAY_API_VERSION = "2024-11-06"
 
-def generate_video_from_script(script, title  ):
+def generate_video_from_script(script, title ):
     print(f"  -> Submitting video generation job to Runway for: '{title}'")
     if not RUNWAY_API_KEY:
         print("    ERROR: RUNWAY_API_KEY environment variable not set.")
@@ -18,16 +19,21 @@ def generate_video_from_script(script, title  ):
         "X-Runway-Version": RUNWAY_API_VERSION
     }
     
+    # Clean up the script to remove any problematic characters
+    clean_script = script[:500].replace('\n', ' ').replace('"', "'")
+    
     payload = {
-        "model": "veo3.1",
-        "promptText": f"Create a professional corporate video based on this script. Do NOT include any text overlays, captions, or on-screen text. The video should be purely visual with no text elements. {script[:1000]}",
-        "ratio": "1280:720",
+        "model": "gen3",
+        "prompt": f"Create a professional corporate video. Do NOT include any text overlays, captions, or on-screen text. The video should be purely visual with no text elements. Based on: {clean_script}",
         "duration": 8,
-        "audio": True
+        "ratio": "16:9"
     }
     
     try:
+        print(f"    Payload: {json.dumps(payload, indent=2)}")
         response = requests.post(f"{RUNWAY_API_URL}/text_to_video", headers=headers, json=payload, timeout=30)
+        print(f"    Response status: {response.status_code}")
+        print(f"    Response body: {response.text}")
         response.raise_for_status()
         job_data = response.json()
         job_id = job_data.get("id")
