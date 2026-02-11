@@ -3,8 +3,7 @@ from bs4 import BeautifulSoup
 from openai import OpenAI
 import os
 
-api_key = os.environ.get("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1" )
+client = OpenAI( )
 CAPLINKED_BLOG_URL = "https://www.caplinked.com/blog/"
 
 def get_latest_blog_posts(url, limit=3 ):
@@ -50,9 +49,6 @@ def get_blog_content(url):
 def generate_video_script(title, content):
     print(f"    -> Generating video script for: {title}")
     try:
-        if not api_key:
-            print("    ERROR: OPENAI_API_KEY not set.")
-            return None
         prompt = f"Create a 2-minute video script for a YouTube video about '{title}'. The script should be engaging, informative, and suitable for an audience of investment bankers, VCs, and corporate development professionals. Base it on this content: {content}"
         response = client.chat.completions.create(
             model="gpt-4.1-mini",
