@@ -1,7 +1,6 @@
 import requests
 import os
 import time
-import json
 
 RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "").strip()
 RUNWAY_API_URL = "https://api.dev.runwayml.com/v1"
@@ -19,8 +18,10 @@ def generate_video_from_script(script, title  ):
         "X-Runway-Version": RUNWAY_API_VERSION
     }
     
-    # Add the "NO TEXT OVERLAYS" instruction to the script
-    enhanced_script = f"IMPORTANT: Do NOT include any text overlays, captions, or on-screen text. The video should be purely visual with no text elements. {script[:900]}"
+    # Add the "NO TEXT OVERLAYS" instruction but keep total under 1000 characters
+    instruction = "IMPORTANT: Do NOT include any text overlays, captions, or on-screen text. The video should be purely visual with no text elements. "
+    remaining_chars = 1000 - len(instruction)
+    enhanced_script = instruction + script[:remaining_chars]
     
     payload = {
         "model": "veo3.1",
@@ -31,11 +32,7 @@ def generate_video_from_script(script, title  ):
     }
     
     try:
-        print(f"    DEBUG: Sending payload: {json.dumps(payload, indent=2)}")
         response = requests.post(f"{RUNWAY_API_URL}/text_to_video", headers=headers, json=payload, timeout=30)
-        print(f"    DEBUG: Response status: {response.status_code}")
-        print(f"    DEBUG: Response headers: {dict(response.headers)}")
-        print(f"    DEBUG: Response body: {response.text}")
         response.raise_for_status()
         job_data = response.json()
         job_id = job_data.get("id")
