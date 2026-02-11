@@ -1,42 +1,30 @@
-import praw
+import requests
+from bs4 import BeautifulSoup
 import os
-import logging
-from openai import OpenAI
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('reddit_scraper.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
-# Reddit API credentials will be read from Render's environment variables
-REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID")
-REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET")
-REDDIT_USER_AGENT = os.environ.get("REDDIT_USER_AGENT", "VDR-Marketing-Bot/0.1 by RevolutionaryCar1356")
+import json
+from datetime import datetime
 
 # OpenAI API key for comment generation
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-# Subreddits to monitor
-SUBREDDITS = ["investing", "venturecapital", "startups", "finance", "law", "business"]
+# Try to import OpenAI if available
+try:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+except ImportError:
+    openai_client = None
+
+# Reddit search URLs
+REDDIT_SEARCH_BASE = "https://www.reddit.com/search"
 
 # Keywords to search for
-KEYWORDS = ["virtual data room", "vdr", "mergers and acquisitions", "due diligence", "caplinked"]
+KEYWORDS = ["virtual data room", "VDR", "M&A", "due diligence", "investment banking"]
 
-# Initialize OpenAI client if API key is available
-openai_client = None
-if OPENAI_API_KEY:
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
-else:
-    logger.warning("OPENAI_API_KEY not set. AI comment generation disabled.")
+# Subreddits to search
+SUBREDDITS = ["investing", "venturecapital", "startups", "finance", "law", "business"]
 
 
-def generate_ai_comment(thread_title, thread_content=""):
+def generate_ai_comment(thread_title):
     """Generate an AI-powered comment for a Reddit thread"""
     if not openai_client:
         return "Check out CapLinked for secure VDR solutions for M&A and due diligence. Visit caplinked.com to learn more."
@@ -49,7 +37,7 @@ Requirements:
 - Mention CapLinked as a relevant solution if appropriate
 - Keep it under 250 characters
 - Sound natural and conversational
-- Include a subtle call-to-action (e.g., "Learn more at caplinked.com" or "Check out CapLinked's blog")
+- Include a subtle call-to-action
 
 Generate only the comment text, nothing else."""
 
@@ -65,80 +53,174 @@ Generate only the comment text, nothing else."""
         return comment
         
     except Exception as e:
-        logger.warning(f"Failed to generate AI comment: {e}")
+        print(f"    WARNING: Failed to generate AI comment: {e}")
         return "Check out CapLinked for secure VDR solutions for M&A and due diligence. Visit caplinked.com to learn more."
 
 
-def main():
-    logger.info("Initializing Reddit scraper...")
+def search_reddit_keyword(keyword):
+    """Search Reddit for a specific keyword using web scraping"""
+    print(f"--- Searching Reddit for: {keyword} ---")
     
-    # Check for credentials
-    if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
-        logger.error("ERROR: Reddit API credentials (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET) not found in environment variables.")
-        logger.error("This script cannot run until the Reddit API application is approved and credentials are set in the Render service environment.")
-        return
-
-    logger.info("Connecting to Reddit...")
+    posts = []
+    
+    # Search across all of Reddit
+    search_url = f"{REDDIT_SEARCH_BASE}/?q={keyword}&type=link&sort=new"
+    
     try:
-        reddit = praw.Reddit(
-            client_id=REDDIT_CLIENT_ID,
-            client_secret=REDDIT_CLIENT_SECRET,
-            user_agent=REDDIT_USER_AGENT,
-        )
-        # Test connection
-        logger.info(f"Successfully connected to Reddit as: {reddit.user.me()}")
-    except Exception as e:
-        logger.error(f"ERROR: Failed to connect to Reddit. Please check your credentials. Details: {e}")
-        return
-
-    logger.info("=" * 80)
-    logger.info("REDDIT ENGAGEMENT OPPORTUNITIES")
-    logger.info("=" * 80)
-    
-    opportunities_found = 0
-
-    for subreddit_name in SUBREDDITS:
-        logger.info(f"\n--- Searching subreddit: r/{subreddit_name} ---")
-        subreddit = reddit.subreddit(subreddit_name)
-        for keyword in KEYWORDS:
-            logger.info(f"  -> Searching for keyword: '{keyword}'")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find post links - Reddit uses various selectors
+        post_elements = soup.find_all('a', {'data-testid': 'internal-unauthenticated-link'})
+        
+        for element in post_elements[:5]:  # Limit to 5 posts per keyword
             try:
-                # Search for new posts
-                for submission in subreddit.search(keyword, sort="new", time_filter="week"):
-                    opportunities_found += 1
-                    
+                title = element.get_text(strip=True)
+                href = element.get('href', '')
+                
+                if href and title and not href.startswith('/r/'):
                     # Build full Reddit URL
-                    reddit_url = f"https://reddit.com{submission.permalink}"
+                    if not href.startswith('http'):
+                        href = f"https://reddit.com{href}"
                     
-                    logger.info("")
-                    logger.info("-" * 80)
-                    logger.info(f"OPPORTUNITY #{opportunities_found}")
-                    logger.info("-" * 80)
-                    logger.info(f"Title: {submission.title}")
-                    logger.info(f"Subreddit: r/{subreddit_name}")
-                    logger.info(f"Author: u/{submission.author}")
-                    logger.info(f"Score: {submission.score}")
-                    logger.info(f"Comments: {submission.num_comments}")
-                    logger.info("")
-                    logger.info(f"THREAD LINK: {reddit_url}")
-                    logger.info("")
-                    
-                    # Generate and log AI comment
-                    suggested_comment = generate_ai_comment(submission.title, submission.selftext[:300])
-                    logger.info(f"SUGGESTED COMMENT:")
-                    logger.info(f'"{suggested_comment}"')
-                    logger.info("")
-                    logger.info("ACTION: Review the thread and add the suggested comment if appropriate.")
-                    logger.info("-" * 80)
+                    posts.append({
+                        'title': title,
+                        'url': href
+                    })
+                    print(f"  - {title}")
                     
             except Exception as e:
-                logger.error(f"    ERROR: An error occurred while searching r/{subreddit_name} for '{keyword}'. Details: {e}")
+                continue
+        
+        print(f"Found {len(posts)} posts\n")
+        return posts
+        
+    except Exception as e:
+        print(f"  ERROR: Failed to search for '{keyword}': {e}\n")
+        return []
 
-    logger.info("")
-    logger.info("=" * 80)
-    logger.info(f"Reddit scraping session finished. Found {opportunities_found} engagement opportunities.")
-    logger.info("Check the log above for thread links and suggested comments.")
-    logger.info("=" * 80)
+
+def search_reddit_subreddit(subreddit, keyword):
+    """Search a specific subreddit for a keyword"""
+    posts = []
+    
+    search_url = f"https://www.reddit.com/r/{subreddit}/search/?q={keyword}&type=link&sort=new"
+    
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find post links
+        post_elements = soup.find_all('a', {'data-testid': 'internal-unauthenticated-link'})
+        
+        for element in post_elements[:3]:  # Limit to 3 posts per subreddit/keyword combo
+            try:
+                title = element.get_text(strip=True)
+                href = element.get('href', '')
+                
+                if href and title and not href.startswith('/r/'):
+                    if not href.startswith('http'):
+                        href = f"https://reddit.com{href}"
+                    
+                    posts.append({
+                        'title': title,
+                        'url': href,
+                        'subreddit': subreddit
+                    })
+                    
+            except Exception as e:
+                continue
+        
+        return posts
+        
+    except Exception as e:
+        return []
+
+
+def main():
+    print("--- Starting Reddit Scraper ---\n")
+    
+    all_posts = []
+    engagement_log = []
+    
+    # Search by keyword across all subreddits
+    for keyword in KEYWORDS:
+        posts = search_reddit_keyword(keyword)
+        all_posts.extend(posts)
+    
+    print("=" * 80)
+    print("REDDIT ENGAGEMENT OPPORTUNITIES")
+    print("=" * 80)
+    print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    
+    # Generate engagement opportunities with AI comments
+    opportunity_num = 0
+    for post in all_posts:
+        opportunity_num += 1
+        
+        print(f"OPPORTUNITY #{opportunity_num}")
+        print("-" * 80)
+        print(f"Title: {post['title']}")
+        print(f"Link: {post['url']}")
+        print()
+        
+        # Generate AI comment
+        suggested_comment = generate_ai_comment(post['title'])
+        print(f"SUGGESTED COMMENT:")
+        print(f'"{suggested_comment}"')
+        print()
+        print("ACTION: Review the thread and add the suggested comment if appropriate.")
+        print("-" * 80)
+        print()
+        
+        # Store in engagement log
+        engagement_log.append({
+            'opportunity_num': opportunity_num,
+            'title': post['title'],
+            'url': post['url'],
+            'suggested_comment': suggested_comment
+        })
+    
+    # Save engagement log to file
+    try:
+        with open('reddit_engagement_log.txt', 'w') as f:
+            f.write("=" * 80 + "\n")
+            f.write("CAPLINKED REDDIT ENGAGEMENT OPPORTUNITIES\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Opportunities: {len(engagement_log)}\n")
+            f.write("=" * 80 + "\n\n")
+            
+            for opp in engagement_log:
+                f.write(f"\n{opp['opportunity_num']}. {opp['title']}\n")
+                f.write(f"   Link: {opp['url']}\n")
+                f.write(f"\n   SUGGESTED COMMENT:\n")
+                f.write(f'   "{opp["suggested_comment"]}"\n')
+                f.write(f"\n   {'─' * 76}\n")
+        
+        print(f"\nEngagement log saved to 'reddit_engagement_log.txt'")
+    except Exception as e:
+        print(f"WARNING: Could not save engagement log: {e}")
+    
+    # Save JSON for programmatic access
+    try:
+        with open('reddit_opportunities.json', 'w') as f:
+            json.dump(engagement_log, f, indent=2)
+        print(f"Opportunities saved to 'reddit_opportunities.json'")
+    except Exception as e:
+        print(f"WARNING: Could not save JSON: {e}")
+    
+    print(f"\n--- Reddit scraper finished. Found {len(all_posts)} total posts. ---")
 
 
 if __name__ == "__main__":
