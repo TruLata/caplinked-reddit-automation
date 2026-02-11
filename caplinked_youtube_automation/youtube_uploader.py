@@ -108,7 +108,7 @@ def upload_video(youtube_service, video_file_path, title, script):
             },
             'status': {
                 'privacyStatus': 'public',
-                'madeForKids': False
+                'selfCertifiedMadeForKids': False
             }
         }
         media = MediaFileUpload(video_file_path, mimetype='video/mp4', resumable=True)
