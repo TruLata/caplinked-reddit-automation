@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import openai
 import os
 
-openai.api_key = os.environ.get("OPENAI_API_KEY" )
+openai.api_key = os.environ.get("OPENAI_API_KEY")
 CAPLINKED_BLOG_URL = "https://www.caplinked.com/blog/"
 
 def get_latest_blog_posts(url, limit=3 ):
@@ -32,7 +32,7 @@ def get_blog_content(url):
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        content_div = soup.find("div", class_="elementor-widget-container")
+        content_div = soup.find("div", class_="post-content")
         if content_div:
             for script_or_style in content_div(["script", "style"]):
                 script_or_style.decompose()
@@ -40,7 +40,7 @@ def get_blog_content(url):
             print(f"    Successfully extracted {len(text)} characters of content.")
             return text[:2000]
         else:
-            print("    ERROR: Could not find content div.")
+            print("    ERROR: Could not find post-content div.")
             return None
     except requests.exceptions.RequestException as e:
         print(f"    ERROR: Could not fetch blog content. Details: {e}")
