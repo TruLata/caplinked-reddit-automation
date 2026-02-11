@@ -1,6 +1,7 @@
 import requests
 import os
 import time
+import json
 
 RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "").strip()
 RUNWAY_API_URL = "https://api.dev.runwayml.com/v1"
@@ -30,7 +31,11 @@ def generate_video_from_script(script, title  ):
     }
     
     try:
+        print(f"    DEBUG: Sending payload: {json.dumps(payload, indent=2)}")
         response = requests.post(f"{RUNWAY_API_URL}/text_to_video", headers=headers, json=payload, timeout=30)
+        print(f"    DEBUG: Response status: {response.status_code}")
+        print(f"    DEBUG: Response headers: {dict(response.headers)}")
+        print(f"    DEBUG: Response body: {response.text}")
         response.raise_for_status()
         job_data = response.json()
         job_id = job_data.get("id")
