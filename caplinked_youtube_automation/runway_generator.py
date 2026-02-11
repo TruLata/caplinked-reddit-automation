@@ -2,8 +2,8 @@ import requests
 import os
 import time
 
-RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "").strip()
-RUNWAY_API_URL = "https://api.runwayml.com/v1"
+RUNWAY_API_KEY = os.environ.get("RUNWAY_API_KEY", "" ).strip()
+RUNWAY_API_URL = "https://api.dev.runwayml.com/v1"
 
 def generate_video_from_script(script, title ):
     print(f"  -> Submitting video generation job to Runway for: '{title}'")
@@ -50,7 +50,6 @@ def generate_video_from_script(script, title ):
                 return None
     except requests.exceptions.RequestException as e:
         print(f"    ERROR: An error occurred with the Runway API. Details: {e}")
-        print("    NOTE: This may be due to the hypothetical nature of the API endpoint.")
         return None
 
 if __name__ == "__main__":
