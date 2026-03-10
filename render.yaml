@@ -4,7 +4,7 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main_member.py
-    schedule: "0 9 * * *"  # Daily at 9 AM UTC (4:00 AM CST) - posts as member with CapLinked mention
+    schedule: "0 20 * * *"  # Daily at 8 PM UTC (3:00 PM CST) - posts as member with CapLinked mention
     envVars:
       - key: OPENAI_API_KEY
         sync: false
