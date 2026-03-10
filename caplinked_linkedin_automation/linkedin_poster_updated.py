@@ -20,7 +20,7 @@ LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
 LINKEDIN_API_VERSION = "202506"  # Using June 2025 version (202502 was sunset)
 
 class LinkedInPoster:
-    """Handle posting to LinkedIn company page via API"""
+    """Handle posting to LinkedIn as a member (for company page)"""
     
     def __init__(self, access_token, organization_id):
         """
@@ -33,6 +33,7 @@ class LinkedInPoster:
         self.access_token = access_token
         self.organization_id = organization_id
         self.organization_urn = f"urn:li:organization:{organization_id}"
+        self.member_urn = None  # Will be fetched from API
         
         self.headers = {
             "Authorization": f"Bearer {access_token}",
@@ -41,11 +42,31 @@ class LinkedInPoster:
             "X-Restli-Protocol-Version": "2.0.0"
         }
         
-        logger.info(f"Initialized LinkedIn poster for organization: {self.organization_urn}")
+        # Fetch member ID from API
+        self._fetch_member_id()
+        logger.info(f"Initialized LinkedIn poster as member: {self.member_urn}")
+    
+    def _fetch_member_id(self):
+        """Fetch authenticated member ID from LinkedIn API"""
+        try:
+            response = requests.get(
+                f"{LINKEDIN_API_BASE}/me",
+                headers=self.headers,
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                member_id = data.get('id')
+                self.member_urn = f"urn:li:person:{member_id}"
+                logger.info(f"Fetched member ID: {self.member_urn}")
+            else:
+                logger.error(f"Failed to fetch member ID: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error fetching member ID: {e}")
     
     def post_text_only(self, text):
         """
-        Post text-only content to company page
+        Post text-only content as member
         
         Args:
             text: Post content (max 3000 characters)
@@ -54,88 +75,68 @@ class LinkedInPoster:
             Response from LinkedIn API with post ID
         """
         
+        if not self.member_urn:
+            logger.error("Member URN not available")
+            return None
+        
         if len(text) > 3000:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
         payload = {
-            "author": self.organization_urn,
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": text
-                    },
-                    "shareMediaCategory": "NONE"
-                }
+            "author": self.member_urn,
+            "commentary": text,
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": []
             },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
+            "lifecycleState": "PUBLISHED",
+            "isReshareDisabledByAuthor": False
         }
         
         return self._make_api_request("POST", "/posts", payload)
     
     def post_with_image(self, text, image_url):
         """
-        Post content with an image
+        Post content with image to company page
         
         Args:
-            text: Post commentary
-            image_url: URL to the image to include
+            text: Post content
+            image_url: URL of image to include
         
         Returns:
             Response from LinkedIn API with post ID
         """
-        
-        if len(text) > 3000:
-            logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
-            text = text[:2997] + "..."
-        
-        payload = {
-            "author": self.organization_urn,
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": text
-                    },
-                    "shareMediaCategory": "IMAGE",
-                    "media": [
-                        {
-                            "type": "IMAGE",
-                            "originalUrl": image_url
-                        }
-                    ]
-                }
-            },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
-        }
-        
-        return self._make_api_request("POST", "/posts", payload)
+        logger.info("Image posting not yet implemented for member posts")
+        return self.post_text_only(text)
     
-    def post_with_link(self, text, link_url, link_title="", link_description=""):
+    def post_blog_content_with_image(self, text, link_url, link_title="", link_description="", image_url=None):
         """
-        Post content with a link preview
+        Post blog content with optional image
         
         Args:
             text: Post commentary
-            link_url: URL to include
-            link_title: Title for the link preview
-            link_description: Description for the link preview
+            link_url: URL to blog post
+            link_title: Blog post title
+            link_description: Blog post description
+            image_url: Optional image URL
         
         Returns:
             Response from LinkedIn API with post ID
         """
+        
+        if not self.member_urn:
+            logger.error("Member URN not available")
+            return None
         
         if len(text) > 3000:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
         payload = {
-            "author": self.organization_urn,
+            "author": self.member_urn,
             "commentary": text,
             "visibility": "PUBLIC",
             "distribution": {
@@ -155,8 +156,8 @@ class LinkedInPoster:
         
         Args:
             method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint
-            data: Request payload
+            endpoint: API endpoint path
+            data: Request payload (for POST/PUT)
         
         Returns:
             Response JSON or None if failed
@@ -201,115 +202,40 @@ class LinkedInPoster:
                 logger.error("Unauthorized - Invalid access token")
                 return None
             
-            elif response.status_code == 403:
-                logger.error("Forbidden - May lack required permissions")
-                return None
-            
             else:
-                logger.error(f"API Error {response.status_code}: {response.text}")
+                error_msg = response.text
+                try:
+                    error_data = response.json()
+                    error_msg = json.dumps(error_data, indent=2)
+                except:
+                    pass
+                
+                logger.error(f"API Error {response.status_code}: {error_msg}")
                 return None
         
-        except requests.RequestException as e:
-            logger.error(f"Request failed: {e}")
+        except requests.exceptions.Timeout:
+            logger.error("Request timeout")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return None
-    
-    def post_blog_content_with_image(self, blog_title, post_text, blog_url, image_url=None):
-        """
-        Post blog content with image to LinkedIn
-        
-        Args:
-            blog_title: Title of the blog post
-            post_text: Generated post text
-            blog_url: URL to the blog post
-            image_url: URL to generated image (optional)
-        
-        Returns:
-            Post ID if successful, None otherwise
-        """
-        
-        try:
-            if image_url:
-                logger.info(f"Posting to LinkedIn with image: {blog_title}")
-                result = self.post_with_image(post_text, image_url)
-            else:
-                logger.info(f"Posting to LinkedIn with link: {blog_title}")
-                result = self.post_with_link(
-                    text=post_text,
-                    link_url=blog_url,
-                    link_title=blog_title,
-                    link_description="Read the full article on CapLinked blog"
-                )
-            
-            if result and "id" in result:
-                post_id = result["id"]
-                logger.info(f"Successfully posted to LinkedIn. Post ID: {post_id}")
-                return post_id
-            else:
-                logger.error("Failed to get post ID from response")
-                return None
-        
-        except Exception as e:
-            logger.error(f"Error posting blog content: {e}")
-            return None
-    
-    def post_blog_content(self, blog_title, post_text, blog_url):
-        """
-        Post blog content with link to LinkedIn (backward compatible)
-        
-        Args:
-            blog_title: Title of the blog post
-            post_text: Generated post text
-            blog_url: URL to the blog post
-        
-        Returns:
-            Post ID if successful, None otherwise
-        """
-        
-        return self.post_blog_content_with_image(blog_title, post_text, blog_url, image_url=None)
-
 
 def get_linkedin_credentials():
     """
     Get LinkedIn credentials from environment variables
     
     Returns:
-        Tuple of (access_token, organization_id) or (None, None) if missing
+        Tuple of (access_token, organization_id)
     """
-    
     access_token = os.getenv("LINKEDIN_ACCESS_TOKEN")
-    organization_id = os.getenv("LINKEDIN_ORGANIZATION_ID")
+    org_id = os.getenv("LINKEDIN_ORGANIZATION_ID")
     
     if not access_token:
-        logger.error("LINKEDIN_ACCESS_TOKEN not set in environment variables")
-        return None, None
+        logger.error("LINKEDIN_ACCESS_TOKEN not set in environment")
+    if not org_id:
+        logger.error("LINKEDIN_ORGANIZATION_ID not set in environment")
     
-    if not organization_id:
-        logger.error("LINKEDIN_ORGANIZATION_ID not set in environment variables")
-        return None, None
-    
-    return access_token, organization_id
-
-
-if __name__ == "__main__":
-    # Test the LinkedIn poster
-    access_token, org_id = get_linkedin_credentials()
-    
-    if not access_token or not org_id:
-        logger.error("Missing LinkedIn credentials")
-        exit(1)
-    
-    poster = LinkedInPoster(access_token, org_id)
-    
-    # Test text-only post
-    test_post = "Testing LinkedIn automation for CapLinked. This is a test post from our automated system."
-    
-    logger.info("Sending test post...")
-    result = poster.post_text_only(test_post)
-    
-    if result:
-        logger.info(f"Test post successful: {result}")
-    else:
-        logger.error("Test post failed")
+    return access_token, org_id
