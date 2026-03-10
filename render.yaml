@@ -1,0 +1,15 @@
+services:
+  - type: cron
+    name: caplinked-linkedin-automation
+    runtime: python
+    rootDir: caplinked_linkedin_automation
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main_member.py
+    schedule: "0 20 * * *"  # Daily at 8 PM UTC (3:00 PM CST) - posts as member with CapLinked mention
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LINKEDIN_ACCESS_TOKEN
+        sync: false
+      - key: LINKEDIN_MEMBER_URN
+        sync: false
