@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-RUNWAY_API_BASE = "https://api.runwayml.com/v1"
+RUNWAY_API_BASE = "https://api.dev.runwayml.com/v1"
 RUNWAY_API_KEY = os.getenv("RUNWAY_API_KEY")
 
 class LinkedInImageGenerator:

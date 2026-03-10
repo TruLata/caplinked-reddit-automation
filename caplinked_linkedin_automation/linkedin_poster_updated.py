@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # LinkedIn API Configuration
 LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
-LINKEDIN_API_VERSION = "202210"
+LINKEDIN_API_VERSION = "202401"
 
 class LinkedInPoster:
     """Handle posting to LinkedIn company page via API"""
