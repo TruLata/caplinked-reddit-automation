@@ -3,12 +3,12 @@ services:
     name: caplinked-linkedin-automation
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
-    schedule: "0 11 * * *"  # Daily at 11 AM UTC (3 hours after YouTube posts)
+    startCommand: python main_member.py
+    schedule: "0 9 * * *"  # Daily at 9 AM UTC (4:00 AM CST) - posts as member with CapLinked mention
     envVars:
       - key: OPENAI_API_KEY
         sync: false
       - key: LINKEDIN_ACCESS_TOKEN
         sync: false
-      - key: LINKEDIN_ORGANIZATION_ID
+      - key: LINKEDIN_MEMBER_URN
         sync: false
