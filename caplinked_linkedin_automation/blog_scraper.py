@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 BLOG_URL = "https://www.caplinked.com/blog/"
 
-def scrape_blog_posts(limit=3):
+def scrape_blog_posts(limit=10):
     """
     Scrape latest blog posts from CapLinked blog
     

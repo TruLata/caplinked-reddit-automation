@@ -46,7 +46,7 @@ def run_linkedin_automation():
     
     # Scrape blog posts
     logger.info("Step 1: Scraping blog posts...")
-    blog_posts = scrape_blog_posts(limit=2)  # Get 2 posts per day
+    blog_posts = scrape_blog_posts(limit=10)  # Get 10 posts for variety
     
     if not blog_posts:
         logger.warning("No blog posts found")
