@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # LinkedIn API Configuration
 LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
-LINKEDIN_API_VERSION = "202401"
+LINKEDIN_API_VERSION = "202312"
 
 class LinkedInPoster:
     """Handle posting to LinkedIn company page via API"""
@@ -173,7 +173,7 @@ class LinkedInPoster:
             Response JSON or None if failed
         """
         
-        url = f"{LINKEDIN_API_BASE}{endpoint}?version={LINKEDIN_API_VERSION}"
+        url = f"{LINKEDIN_API_BASE}{endpoint}"
         
         try:
             if method == "POST":
