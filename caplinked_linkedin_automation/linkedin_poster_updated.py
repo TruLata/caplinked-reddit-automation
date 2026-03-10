@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # LinkedIn API Configuration
 LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
-LINKEDIN_API_VERSION = "202401"
+LINKEDIN_API_VERSION = "202310"
 
 class LinkedInPoster:
     """Handle posting to LinkedIn company page via API"""
@@ -37,7 +37,7 @@ class LinkedInPoster:
         self.headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
-            "Linkedin-Version": LINKEDIN_API_VERSION,
+            "LinkedIn-Version": LINKEDIN_API_VERSION,
             "X-Restli-Protocol-Version": "2.0.0"
         }
         
