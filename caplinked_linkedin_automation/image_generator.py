@@ -27,7 +27,7 @@ class LinkedInImageGenerator:
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "X-Runway-Version": "2024-11-15"
+            "X-Runway-Version": "2024-10-01"
         }
         
         if not self.api_key:
