@@ -136,26 +136,15 @@ class LinkedInPoster:
         
         payload = {
             "author": self.organization_urn,
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": text
-                    },
-                    "shareMediaCategory": "ARTICLE",
-                    "media": [
-                        {
-                            "type": "ARTICLE",
-                            "originalUrl": link_url,
-                            "title": link_title[:100] if link_title else "",
-                            "description": link_description[:200] if link_description else ""
-                        }
-                    ]
-                }
+            "commentary": text,
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": []
             },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
+            "lifecycleState": "PUBLISHED",
+            "isReshareDisabledByAuthor": False
         }
         
         return self._make_api_request("POST", "/posts", payload)
