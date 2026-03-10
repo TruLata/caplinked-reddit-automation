@@ -36,9 +36,7 @@ class LinkedInPoster:
         
         self.headers = {
             "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "LinkedIn-Version": "202312",
-            "X-Restli-Protocol-Version": "2.0.0"
+            "Content-Type": "application/json"
         }
         
         logger.info(f"Initialized LinkedIn poster for organization: {self.organization_urn}")

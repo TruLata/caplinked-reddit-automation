@@ -83,23 +83,9 @@ def run_linkedin_automation():
             
             logger.info(f"Generated post ({len(linkedin_post)} chars):\n{linkedin_post}\n")
             
-            # Generate image
-            logger.info("Step 3: Generating image...")
+            # Skip image generation for now - Runway API issues
+            logger.info("Step 3: Skipping image generation (Runway API issues)")
             image_url = None
-            
-            if image_generator.api_key:
-                image_url = image_generator.generate_linkedin_image(
-                    blog_title=post['title'],
-                    blog_excerpt=post['excerpt'],
-                    topic="VDR"  # Could be dynamic based on content
-                )
-                
-                if image_url:
-                    logger.info(f"Generated image: {image_url}")
-                else:
-                    logger.warning("Image generation failed, will post without image")
-            else:
-                logger.info("Image generation disabled (no Runway API key)")
             
             # Post to LinkedIn
             logger.info("Step 4: Posting to LinkedIn...")
