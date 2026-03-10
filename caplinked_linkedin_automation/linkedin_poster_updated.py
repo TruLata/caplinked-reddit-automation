@@ -36,7 +36,8 @@ class LinkedInPoster:
         
         self.headers = {
             "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "LinkedIn-Version": "202312"
         }
         
         logger.info(f"Initialized LinkedIn poster for organization: {self.organization_urn}")
