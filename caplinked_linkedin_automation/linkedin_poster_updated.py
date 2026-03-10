@@ -174,6 +174,9 @@ class LinkedInPoster:
         
         url = f"{LINKEDIN_API_BASE}{endpoint}"
         
+        # Debug: log headers being sent
+        logger.info(f"Request headers: {self.headers}")
+        
         try:
             if method == "POST":
                 response = requests.post(
