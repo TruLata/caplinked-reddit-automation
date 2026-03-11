@@ -58,9 +58,8 @@ class LinkedInMemberPoster:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
-        # Use authenticated user as author
+        # Minimal payload for text-only post
         payload = {
-            "author": f"urn:li:person:{self.member_urn}" if self.member_urn else "urn:li:person:~",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
@@ -95,8 +94,8 @@ class LinkedInMemberPoster:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
+        # Minimal payload for article post
         payload = {
-            "author": f"urn:li:person:{self.member_urn}" if self.member_urn else "urn:li:person:~",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
@@ -107,9 +106,7 @@ class LinkedInMemberPoster:
                     "media": [
                         {
                             "type": "ARTICLE",
-                            "originalUrl": link_url,
-                            "title": link_title[:100] if link_title else "",
-                            "description": link_description[:200] if link_description else ""
+                            "originalUrl": link_url
                         }
                     ]
                 }
