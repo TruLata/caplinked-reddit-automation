@@ -13,7 +13,7 @@ from linkedin_post_generator_member import generate_post_with_blog_link_and_ment
 from linkedin_poster_member import LinkedInMemberPoster, get_linkedin_credentials
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('linkedin_automation.log'),
