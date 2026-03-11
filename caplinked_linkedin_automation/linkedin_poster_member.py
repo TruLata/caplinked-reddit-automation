@@ -138,6 +138,11 @@ class LinkedInMemberPoster:
         url = f"{LINKEDIN_API_BASE}{endpoint}"
         
         try:
+            # Log request details for debugging
+            logger.debug(f"API Request: {method} {url}")
+            logger.debug(f"Headers: {self.headers}")
+            logger.debug(f"Payload: {json.dumps(data, indent=2) if data else 'None'}")
+            
             if method == "POST":
                 response = requests.post(
                     url,
