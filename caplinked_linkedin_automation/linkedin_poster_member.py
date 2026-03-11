@@ -74,7 +74,7 @@ class LinkedInMemberPoster:
             }
         }
         
-        return self._make_api_request("POST", "/posts", payload)
+        return self._make_api_request("POST", "/ugcPosts", payload)
     
     def post_with_link(self, text, link_url, link_title="", link_description=""):
         """
@@ -116,7 +116,7 @@ class LinkedInMemberPoster:
             }
         }
         
-        return self._make_api_request("POST", "/posts", payload)
+        return self._make_api_request("POST", "/ugcPosts", payload)
     
     def _make_api_request(self, method, endpoint, data=None):
         """
