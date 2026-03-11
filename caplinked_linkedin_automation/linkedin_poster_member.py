@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # LinkedIn API Configuration
 LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
-LINKEDIN_API_VERSION = "202210"
+LINKEDIN_API_VERSION = "202506"
 
 # CapLinked organization URN for mentions
 CAPLINKED_ORG_URN = "urn:li:organization:739542"
