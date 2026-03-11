@@ -13,7 +13,7 @@ from datetime import datetime
 # Use parent logger from main script
 logger = logging.getLogger(__name__)
 
-# LinkedIn API Configuration
+# LinkedIn API Configuration - CORRECT ENDPOINT
 LINKEDIN_API_BASE = "https://api.linkedin.com/rest"
 LINKEDIN_API_VERSION = "202506"
 
@@ -32,7 +32,7 @@ class LinkedInMemberPoster:
             member_urn: Member URN (optional, will use authenticated user if not provided)
         """
         self.access_token = access_token
-        self.member_urn = member_urn  # Will be fetched if not provided
+        self.member_urn = member_urn  # Will use ~ (authenticated user) if not provided
         
         self.headers = {
             "Authorization": f"Bearer {access_token}",
@@ -51,73 +51,106 @@ class LinkedInMemberPoster:
             text: Post content (max 3000 characters)
         
         Returns:
-            Response from LinkedIn API with post ID
+            Post ID if successful, None otherwise
         """
         
         if len(text) > 3000:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
-        # Minimal payload for text-only post
+        # Correct payload format from official LinkedIn API docs
         payload = {
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": text
-                    },
-                    "shareMediaCategory": "NONE"
-                }
+            "author": "urn:li:person:~",  # Tilde represents authenticated user
+            "commentary": text,
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": []
             },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
+            "lifecycleState": "PUBLISHED",
+            "isReshareDisabledByAuthor": False
         }
         
-        return self._make_api_request("POST", "/ugcPosts", payload)
+        return self._make_api_request("POST", "/posts", payload)
     
     def post_with_link(self, text, link_url, link_title="", link_description=""):
         """
-        Post content with a link preview as member
+        Post content with a link/article as member
         
         Args:
             text: Post commentary
             link_url: URL to include
-            link_title: Title for the link preview
-            link_description: Description for the link preview
+            link_title: Title for the article
+            link_description: Description for the article
         
         Returns:
-            Response from LinkedIn API with post ID
+            Post ID if successful, None otherwise
         """
         
         if len(text) > 3000:
             logger.warning(f"Post text exceeds 3000 characters ({len(text)}), truncating")
             text = text[:2997] + "..."
         
-        # Minimal payload for article post
+        # Correct payload format for article post from official LinkedIn API docs
         payload = {
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": text
-                    },
-                    "shareMediaCategory": "ARTICLE",
-                    "media": [
-                        {
-                            "type": "ARTICLE",
-                            "originalUrl": link_url
-                        }
-                    ]
+            "author": "urn:li:person:~",  # Tilde represents authenticated user
+            "commentary": text,
+            "visibility": "PUBLIC",
+            "distribution": {
+                "feedDistribution": "MAIN_FEED",
+                "targetEntities": [],
+                "thirdPartyDistributionChannels": []
+            },
+            "content": {
+                "article": {
+                    "source": link_url,
+                    "title": link_title[:200] if link_title else "",
+                    "description": link_description[:200] if link_description else ""
                 }
             },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
+            "lifecycleState": "PUBLISHED",
+            "isReshareDisabledByAuthor": False
         }
         
-        return self._make_api_request("POST", "/ugcPosts", payload)
+        return self._make_api_request("POST", "/posts", payload)
     
+    def post_blog_content(self, blog_title, post_text, blog_url):
+        """
+        Post blog content with link to LinkedIn as member
+        
+        Args:
+            blog_title: Title of the blog post
+            post_text: Generated post text (should already include CapLinked mention)
+            blog_url: URL to the blog post
+        
+        Returns:
+            Post ID if successful, None otherwise
+        """
+        
+        try:
+            logger.info(f"Posting to LinkedIn as member: {blog_title}")
+            
+            result = self.post_with_link(
+                text=post_text,
+                link_url=blog_url,
+                link_title=blog_title,
+                link_description="Read the full article on CapLinked blog"
+            )
+            
+            if result and "id" in result:
+                post_id = result["id"]
+                logger.info(f"Successfully posted to LinkedIn. Post ID: {post_id}")
+                logger.info(f"Post can now be manually shared to CapLinked company page")
+                return post_id
+            else:
+                logger.error("Failed to get post ID from response")
+                return None
+        
+        except Exception as e:
+            logger.error(f"Error posting blog content: {e}")
+            return None
+
     def _make_api_request(self, method, endpoint, data=None):
         """
         Make authenticated request to LinkedIn API
@@ -180,47 +213,8 @@ class LinkedInMemberPoster:
                 logger.error(f"API Error {response.status_code}: {response.text}")
                 return None
         
-        except requests.RequestException as e:
+        except Exception as e:
             logger.error(f"Request failed: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            return None
-    
-    def post_blog_content(self, blog_title, post_text, blog_url):
-        """
-        Post blog content with link to LinkedIn as member
-        
-        Args:
-            blog_title: Title of the blog post
-            post_text: Generated post text (should already include CapLinked mention)
-            blog_url: URL to the blog post
-        
-        Returns:
-            Post ID if successful, None otherwise
-        """
-        
-        try:
-            logger.info(f"Posting to LinkedIn as member: {blog_title}")
-            
-            result = self.post_with_link(
-                text=post_text,
-                link_url=blog_url,
-                link_title=blog_title,
-                link_description="Read the full article on CapLinked blog"
-            )
-            
-            if result and "id" in result:
-                post_id = result["id"]
-                logger.info(f"Successfully posted to LinkedIn. Post ID: {post_id}")
-                logger.info(f"Post can now be manually shared to CapLinked company page")
-                return post_id
-            else:
-                logger.error("Failed to get post ID from response")
-                return None
-        
-        except Exception as e:
-            logger.error(f"Error posting blog content: {e}")
             return None
 
 
@@ -229,47 +223,19 @@ def get_linkedin_credentials():
     Get LinkedIn credentials from environment variables
     
     Returns:
-        Tuple of (access_token, member_urn) or (None, None) if missing
+        Tuple of (access_token, member_urn)
     """
     
     access_token = os.getenv("LINKEDIN_ACCESS_TOKEN")
     member_urn = os.getenv("LINKEDIN_MEMBER_URN")
     
     if not access_token:
-        logger.error("LINKEDIN_ACCESS_TOKEN not set in environment variables")
+        logger.error("LINKEDIN_ACCESS_TOKEN environment variable not set")
         return None, None
     
-    # Member URN is optional - will use authenticated user if not provided
-    if not member_urn:
+    if member_urn:
+        logger.info(f"Using member URN: {member_urn}")
+    else:
         logger.warning("LINKEDIN_MEMBER_URN not set - will use authenticated user")
     
     return access_token, member_urn
-
-
-if __name__ == "__main__":
-    # Test the LinkedIn member poster
-    access_token, member_urn = get_linkedin_credentials()
-    
-    if not access_token:
-        logger.error("Missing LinkedIn access token")
-        exit(1)
-    
-    poster = LinkedInMemberPoster(access_token, member_urn)
-    
-    # Test text-only post with CapLinked mention
-    test_post = """Exploring the latest insights on VDR best practices and M&A due diligence. 
-
-What makes a data room truly secure? The answer lies in comprehensive access controls, audit trails, and intelligent document management.
-
-Learn more about securing your M&A process with CapLinked's virtual data room solutions. 
-
-On behalf of CapLinked"""
-    
-    logger.info("Sending test post...")
-    result = poster.post_text_only(test_post)
-    
-    if result:
-        logger.info(f"Test post successful: {result}")
-        logger.info("You can now manually share this post to CapLinked's company page")
-    else:
-        logger.error("Test post failed")
