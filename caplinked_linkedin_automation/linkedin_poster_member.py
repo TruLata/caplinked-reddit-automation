@@ -63,6 +63,7 @@ class LinkedInMemberPoster:
         
         # Use authenticated user as author
         payload = {
+            "author": f"urn:li:person:{self.member_urn}" if self.member_urn else "urn:li:person:~",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
@@ -98,6 +99,7 @@ class LinkedInMemberPoster:
             text = text[:2997] + "..."
         
         payload = {
+            "author": f"urn:li:person:{self.member_urn}" if self.member_urn else "urn:li:person:~",
             "lifecycleState": "PUBLISHED",
             "specificContent": {
                 "com.linkedin.ugc.ShareContent": {
