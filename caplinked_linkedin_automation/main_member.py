@@ -80,9 +80,13 @@ def run_linkedin_automation():
             
             logger.info(f"Generated post ({len(linkedin_post)} chars):\n{linkedin_post}\n")
             
-            # Post to LinkedIn as member (text-only for testing)
+            # Post to LinkedIn as member with link
             logger.info("Step 3: Posting to LinkedIn as member...")
-            post_id = poster.post_text_only(linkedin_post)
+            post_id = poster.post_blog_content(
+                blog_title=post['title'],
+                post_text=linkedin_post,
+                blog_url=post['url']
+            )
             
             if post_id:
                 posted_content.append({
