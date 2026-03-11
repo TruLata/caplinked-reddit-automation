@@ -10,10 +10,7 @@ import logging
 import os
 from datetime import datetime
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Use parent logger from main script
 logger = logging.getLogger(__name__)
 
 # LinkedIn API Configuration
